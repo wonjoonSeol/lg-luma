@@ -91,7 +91,7 @@ await fs.copyFile(
 );
 await fs.copyFile(path.join(root, 'tv/autostart.sh'), path.join(stage, 'autostart.sh'));
 await fs.chmod(path.join(stage, 'autostart.sh'), 0o755);
-for (const file of ['home.sh', 'home.cjs']) {
+for (const file of ['home.sh', 'home6.sh', 'home.cjs']) {
   await fs.copyFile(path.join(root, 'tv', file), path.join(stage, file));
   await fs.chmod(path.join(stage, file), file.endsWith('.sh') ? 0o755 : 0o644);
 }
