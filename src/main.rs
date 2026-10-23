@@ -2,6 +2,8 @@ mod app_artwork;
 mod branding;
 mod diagnostics;
 mod font;
+#[cfg(all(feature = "webos", target_os = "linux", target_arch = "arm"))]
+mod home_identity;
 mod i18n;
 #[cfg(all(feature = "webos", target_os = "linux", target_arch = "arm"))]
 mod luna;
@@ -383,6 +385,8 @@ fn scripted_click(
 }
 
 fn run() -> Result<(), String> {
+    #[cfg(all(feature = "webos", target_os = "linux", target_arch = "arm"))]
+    home_identity::adopt();
     let startup = Instant::now();
     let mut options = Options::parse()?;
     let webos = cfg!(feature = "webos");
@@ -542,7 +546,36 @@ fn run() -> Result<(), String> {
             Err(error) => failures.push(format!("{samples}x MSAA: {error}")),
         }
     }
-    let (window, _context) = opened.ok_or_else(|| failures.join("; "))?;
+    let (mut window, _context) = opened.ok_or_else(|| failures.join("; "))?;
+    // As webOS 6 Home under LG Home's identity, register with SAM so the Home key relaunches
+    // this process instead of SAM killing and restarting it. Events wake the event loop.
+    #[cfg(all(feature = "webos", target_os = "linux", target_arch = "arm"))]
+    let home_event = if options.webos_home && home_identity::adopted() {
+        let subsystem = sdl.event()?;
+        // SAFETY: registers one SDL user event type before the event loop starts.
+        let kind = unsafe { subsystem.register_event()? };
+        let sender = subsystem.event_sender();
+        luna::register_home(move |value| {
+            let code = match value.get("event").and_then(serde_json::Value::as_str) {
+                Some("relaunch") => 1,
+                Some("close") => 2,
+                _ => return,
+            };
+            let _ = sender.push_event(Event::User {
+                timestamp: 0,
+                window_id: 0,
+                type_: kind,
+                code,
+                data1: std::ptr::null_mut(),
+                data2: std::ptr::null_mut(),
+            });
+        });
+        Some(kind)
+    } else {
+        None
+    };
+    #[cfg(not(all(feature = "webos", target_os = "linux", target_arch = "arm")))]
+    let home_event: Option<u32> = None;
     gl::load_with(|name| video.gl_get_proc_address(name) as *const _);
     if !webos {
         unsafe { gl::Enable(gl::MULTISAMPLE) };
@@ -674,6 +707,16 @@ fn run() -> Result<(), String> {
             let mut pending = vec![];
             match event {
                 Event::Quit { .. } => running = false,
+                Event::User { type_, code, .. } if Some(type_) == home_event => match code {
+                    1 => {
+                        eprintln!("Luma Home: relaunched by SAM");
+                        window.restore();
+                        window.raise();
+                        window.show();
+                        state.dirty = true;
+                    }
+                    _ => running = false,
+                },
                 Event::Window {
                     window_id,
                     win_event,

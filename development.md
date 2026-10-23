@@ -320,6 +320,35 @@ happened about two minutes after a full cold boot, and LG Home shows until then.
 does not ask for confirmation, and it creates no `.luma-home` marker, so opening Luma's own tile
 is not redirected to the Home instance.
 
+#### Relaunch instead of restart
+
+When Home is launched while its process is running, SAM sends a `relaunch` event to a Home that
+registered with `registerApp`, and kills and restarts one that did not
+(`"start_native_handler":"LaunchNotRegisteredAppAsPolicy"`, signal 9). Registering needs the
+`com.webos.app.home` bus name, which LS2 grants only to the program running from
+`/usr/bin/com.webos.app.home`: from Luma's own path, an anonymous `registerApp` call fails with
+"cannot find caller id" and `LSRegister("com.webos.app.home")` with "Invalid permissions".
+
+The launcher therefore exports `LUMA_HOME_IDENTITY=1`. At the start of `run`, before any thread or
+window exists, `src/home_identity.rs` calls `unshare(CLONE_NEWNS)`, makes the new mount namespace
+private, bind-mounts Luma's executable over `/usr/bin/com.webos.app.home` in it and `execv`s that
+path. The process ID stays the one SAM launched, and the rest of the system still sees the
+launcher at that path, so updates and the LG Home fallback are unchanged. Running from
+`/usr/bin`, `$ORIGIN/lib` and the asset directory no longer resolve, so the switch prepends the
+install's `lib` to `LD_LIBRARY_PATH` and passes `--assets` explicitly. Preferences use their fixed
+storage paths and are unaffected.
+
+Running as that program, `luna::register_home` registers the Home bus name, subscribes to
+`registerApp` on its own thread (SAM replies `{"event":"registered"}`) and turns `relaunch` into
+an SDL user event; the event loop then restores and raises the window. `close` ends the event
+loop. If any step fails, Luma logs it and runs as before, so the Home key restarts it again.
+SDL-webOS also tries its own registration at startup and logs `Failed to register app` because
+its `getAppInfo` call fails; Luma's registration does not depend on it.
+
+Verified on an LG C1 with webOS 6.5.3: Home launched after HDMI 4 kept the same process ID, logged
+the `relaunch` event and returned to the foreground with its decoded icons. Inventory reads work
+under LG Home's identity.
+
 ## Manual extra-app preview
 
 ```sh

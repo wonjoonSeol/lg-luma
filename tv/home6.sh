@@ -4,7 +4,9 @@
 # restarting sam. LG Home there is a native binary, so this leaves its
 # manifest alone and bind-mounts a launcher over the binary instead: sam keeps
 # launching com.webos.app.home as before, with the same launch data, and the
-# launcher execs Luma with it. Unmounting puts LG Home back.
+# launcher execs Luma with it. Luma then runs itself from the binary's path in a
+# private mount namespace, so it can register with sam and the Home key relaunches
+# it instead of restarting it (development.md). Unmounting puts LG Home back.
 STATE=/var/lib/luma-home6
 TARGET=/usr/bin/com.webos.app.home
 LUMA=/media/developer/apps/usr/palm/applications/com.ecklf.luma/luma
@@ -30,6 +32,9 @@ write_launcher() {
 #!/bin/sh
 # Bind-mounted over $TARGET by $STATE/home6.sh.
 if [ -x "$LUMA" ]; then
+  # Luma runs itself from $TARGET in a private mount namespace, so it has LG Home's
+  # bus identity and can register with SAM instead of being restarted by the Home key.
+  export LUMA_HOME_IDENTITY=1
   exec "$LUMA" "\$@" 2>>"$STATE/launcher.log"
 fi
 # Luma is gone: put LG's Home back and run it with the same launch data.

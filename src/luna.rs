@@ -39,6 +39,15 @@ unsafe extern "C" {
         token: *mut c_ulong,
         error: *mut Error,
     ) -> bool;
+    fn LSCall(
+        handle: *mut c_void,
+        uri: *const c_char,
+        payload: *const c_char,
+        callback: extern "C" fn(*mut c_void, *mut c_void, *mut c_void) -> bool,
+        userdata: *mut c_void,
+        token: *mut c_ulong,
+        error: *mut Error,
+    ) -> bool;
     fn LSCallCancel(handle: *mut c_void, token: c_ulong, error: *mut Error) -> bool;
     fn LSMessageGetPayload(message: *mut c_void) -> *const c_char;
 }
@@ -203,6 +212,77 @@ impl Drop for Connection {
             unsafe { g_main_context_unref(self.context) };
         }
     }
+}
+
+type HomeEvents = Box<dyn Fn(Value) + Send>;
+
+extern "C" fn home_event(
+    _handle: *mut c_void,
+    message: *mut c_void,
+    userdata: *mut c_void,
+) -> bool {
+    if message.is_null() || userdata.is_null() {
+        return true;
+    }
+    // SAFETY: the callback box is leaked for the life of the process, and the payload is a
+    // NUL-terminated string owned by LS2 for the duration of this call.
+    unsafe {
+        let payload = LSMessageGetPayload(message);
+        if !payload.is_null() {
+            let text = CStr::from_ptr(payload).to_string_lossy();
+            eprintln!("Luma Home SAM: {text}");
+            if let Ok(value) = serde_json::from_str(&text) {
+                (*userdata.cast::<HomeEvents>())(value);
+            }
+        }
+    }
+    true
+}
+
+/// Registers this process with SAM as webOS 6 Home on its own thread and passes every lifecycle
+/// event (relaunch, close, ...) to `events`. Needs LG Home's bus name, so only works once
+/// `home_identity` has switched to LG Home's program path.
+pub fn register_home(events: impl Fn(Value) + Send + 'static) {
+    let events: HomeEvents = Box::new(events);
+    thread::spawn(move || {
+        let mut error = Error::new();
+        // SAFETY: a new context owned by this thread for the rest of the process.
+        let context = unsafe { g_main_context_new() };
+        let mut handle = ptr::null_mut();
+        let name = CString::new(crate::platform::HOME_ID).unwrap();
+        // SAFETY: valid name/output/error pointers; the handle is never unregistered.
+        if !unsafe { LSRegister(name.as_ptr(), &mut handle, &mut error) } {
+            eprintln!("Luma Home SAM: {}", error.describe("registration"));
+            return;
+        }
+        if !unsafe { LSGmainContextAttach(handle, context, &mut error) } {
+            eprintln!("Luma Home SAM: {}", error.describe("context attachment"));
+            return;
+        }
+        let uri = CString::new("luna://com.webos.applicationManager/registerApp").unwrap();
+        let payload = CString::new(r#"{"subscribe":true}"#).unwrap();
+        let userdata = Box::into_raw(Box::new(events)).cast();
+        let mut token = 0;
+        // SAFETY: strings outlive the call; the callback box lives as long as the process.
+        if !unsafe {
+            LSCall(
+                handle,
+                uri.as_ptr(),
+                payload.as_ptr(),
+                home_event,
+                userdata,
+                &mut token,
+                &mut error,
+            )
+        } {
+            eprintln!("Luma Home SAM: {}", error.describe("registerApp"));
+            return;
+        }
+        loop {
+            // SAFETY: only this thread drives this context; blocking waits for SAM's events.
+            unsafe { g_main_context_iteration(context, 1) };
+        }
+    });
 }
 
 pub fn call(uri: &str, payload: &Value) -> Result<Value, String> {
