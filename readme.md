@@ -7,13 +7,16 @@ English | [한국어](readme.ko.md)
 ## About this fork
 
 My fork for an LG C1 on webOS 6. On top of upstream `main`, it adds **Luma as Home on webOS 6**,
-which upstream's takeover doesn't support ([how it works](#luma-as-home-on-webos-6)). Until they
-are merged, it also carries two icon fixes:
+which upstream's takeover doesn't support ([how it works](#luma-as-home-on-webos-6)), and the
+**Home button brings back the running Luma instantly** instead of restarting it
+([why](#the-home-button-without-a-restart)). Until they are merged, it also carries three icon fixes:
 
 - Transparent icons whose logo reaches the edges, like Litefin's, keep a dark card instead of
   disappearing into a card of their own colour ([#35](https://github.com/ecklf/lg-luma/pull/35)).
 - Icons show as soon as they are decoded: the Apps page fills in about 3x faster
   ([#36](https://github.com/ecklf/lg-luma/pull/36)).
+- Icons stay on screen when you come back to Luma, and are read again only when an app is
+  updated ([#37](https://github.com/ecklf/lg-luma/pull/37)).
 
 <img src="docs/fork/icon-delivery-timing.png" alt="Icons on screen over time on an LG C1: before the fix the 15 icons take 751 ms to fill in, two at a time about every 107 ms; after it they take 240 ms, one every 16 ms">
 
@@ -21,7 +24,7 @@ are merged, it also carries two icon fixes:
 
 Luma as Home on my LG C1 (webOS 6.5.3), captured on the TV.
 
-**Download:** [Luma 2.2.0 preview 2](https://github.com/wonjoonSeol/lg-luma/releases/tag/v2.2.0-preview.2).
+**Download:** [Luma 2.2.0 preview 3](https://github.com/wonjoonSeol/lg-luma/releases/tag/v2.2.0-preview.3).
 Install the IPK with [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) or the
 [SSH steps](#ssh) below. No build tools needed.
 
@@ -39,7 +42,8 @@ These fixes started in this fork. Each one is merged into upstream `main` and re
   ([#21](https://github.com/ecklf/lg-luma/pull/21), merged in [`27802ac`](https://github.com/ecklf/lg-luma/commit/27802ac)).
 
 Still open upstream, and included in this fork's preview until they are merged:
-[#35](https://github.com/ecklf/lg-luma/pull/35) and [#36](https://github.com/ecklf/lg-luma/pull/36).
+[#35](https://github.com/ecklf/lg-luma/pull/35), [#36](https://github.com/ecklf/lg-luma/pull/36)
+and [#37](https://github.com/ecklf/lg-luma/pull/37).
 
 **Before: Luma 2.0.3**
 
@@ -60,9 +64,10 @@ starting LG Home as usual and gets Luma. LG Home's own files stay untouched.
 
 ```mermaid
 flowchart LR
-  A[Home button] --> B[webOS app manager<br>starts LG Home as usual]
-  B --> C["/usr/bin/com.webos.app.home<br>launcher mounted over it"]
-  C --> D[Luma]
+  A[Home button] --> B[webOS app manager]
+  B -- first press --> C["/usr/bin/com.webos.app.home<br>launcher mounted over it"]
+  C --> D["Luma, running as LG Home<br>in its own mount view"]
+  B -- later presses, relaunch message --> D
 ```
 
 Install the preview, open Luma once to check it runs, then in the TV's root SSH shell:
@@ -78,9 +83,21 @@ sh /var/lib/luma-home6/home6.sh status
 sh /var/lib/luma-home6/home6.sh disable
 ```
 
+#### The Home button without a restart
+
+LG's app manager handles the Home button in one of two ways. A Home that registered with it gets a
+"relaunch" message and simply comes back; one that never registered is killed and started again.
+Only the program at `/usr/bin/com.webos.app.home` may register as Home, so Luma runs itself from
+that path inside a private mount view that only its own process sees, then registers. The Home
+button now brings back the running Luma instantly, with its icons and the page you left. The rest
+of the system still sees the launcher, and if the switch ever fails, Luma runs as before and the
+Home button restarts it.
+
 Read before you enable it:
 
 - Tested on one TV: LG OLED48C1KNB, webOS 6.5.3.
+- Upgrading from an earlier preview: run the `enable` command above again from the new package,
+  so the launcher asks Luma to switch to LG Home's identity.
 - After a full cold boot, LG Home shows for about two minutes until the boot hook switches Home to Luma.
 - With Luma as Home, opening an app can bring up LG's user agreement prompt.
 - Turn off Luma's autostart hook first (`autostart.sh disable`), and disable `home6.sh` before

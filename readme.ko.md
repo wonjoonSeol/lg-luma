@@ -6,10 +6,11 @@
 
 ## 이 포크에 대해
 
-webOS 6을 쓰는 LG C1용 포크예요. 원본 `main` 위에 **webOS 6에서 Luma를 홈으로 쓰는 기능**을 더했어요. 원본의 홈 교체 기능은 webOS 6을 지원하지 않거든요 ([동작 방식](#webos-6에서-luma를-홈으로-쓰기)). 원본에 합쳐질 때까지 아이콘 수정 두 가지도 같이 들어 있어요.
+webOS 6을 쓰는 LG C1용 포크예요. 원본 `main` 위에 **webOS 6에서 Luma를 홈으로 쓰는 기능**을 더했어요. 원본의 홈 교체 기능은 webOS 6을 지원하지 않거든요 ([동작 방식](#webos-6에서-luma를-홈으로-쓰기)). 그리고 **홈 버튼을 누르면 Luma를 다시 시작하지 않고, 실행 중인 Luma를 바로 불러와요** ([이유](#다시-시작하지-않는-홈-버튼)). 원본에 합쳐질 때까지 아이콘 수정 세 가지도 같이 들어 있어요.
 
 - Litefin처럼 로고가 가장자리까지 닿는 투명 아이콘이 같은 색 카드에 묻히지 않고 어두운 카드에 보여요 ([#35](https://github.com/ecklf/lg-luma/pull/35)).
 - 아이콘을 읽는 대로 바로 보여 줘서, 앱 화면이 3배쯤 빨리 채워져요 ([#36](https://github.com/ecklf/lg-luma/pull/36)).
+- Luma로 돌아와도 아이콘이 그대로 있고, 앱이 업데이트됐을 때만 아이콘을 다시 읽어요 ([#37](https://github.com/ecklf/lg-luma/pull/37)).
 
 <img src="docs/fork/icon-delivery-timing.ko.png" alt="LG C1에서 시간에 따라 화면에 뜬 아이콘 수: 수정 전에는 아이콘 15개가 약 107 ms마다 두 개씩 떠서 751 ms 걸리고, 수정 후에는 16 ms마다 하나씩 떠서 240 ms 걸려요">
 
@@ -17,7 +18,7 @@ webOS 6을 쓰는 LG C1용 포크예요. 원본 `main` 위에 **webOS 6에서 Lu
 
 제 LG C1(webOS 6.5.3)에서 홈으로 쓰는 Luma를 TV에서 바로 캡처했어요.
 
-**다운로드:** [Luma 2.2.0 preview 2](https://github.com/wonjoonSeol/lg-luma/releases/tag/v2.2.0-preview.2).
+**다운로드:** [Luma 2.2.0 preview 3](https://github.com/wonjoonSeol/lg-luma/releases/tag/v2.2.0-preview.3).
 IPK 파일을 [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop)나
 [영어 README의 SSH 방법](readme.md#ssh)으로 설치하면 돼요. 빌드 도구는 필요 없어요.
 
@@ -29,7 +30,7 @@ IPK 파일을 [webOS Dev Manager](https://github.com/webosbrew/dev-manager-deskt
 - **한국 OTT와 LG 앱 아이콘** ([#18](https://github.com/ecklf/lg-luma/pull/18), [`3e256f6`](https://github.com/ecklf/lg-luma/commit/3e256f6)에서 합쳐짐). [#26](https://github.com/ecklf/lg-luma/pull/26)부터는 Luma가 모든 앱 아이콘을 TV에서 바로 읽어 와요.
 - **올바른 로고.** Glasshouse에 더 이상 Das Erste 로고가 붙지 않아요 ([#21](https://github.com/ecklf/lg-luma/pull/21), [`27802ac`](https://github.com/ecklf/lg-luma/commit/27802ac)에서 합쳐짐).
 
-[#35](https://github.com/ecklf/lg-luma/pull/35)와 [#36](https://github.com/ecklf/lg-luma/pull/36)은 아직 원본에서 검토 중이라, 합쳐질 때까지 이 포크의 preview에 들어 있어요.
+[#35](https://github.com/ecklf/lg-luma/pull/35), [#36](https://github.com/ecklf/lg-luma/pull/36), [#37](https://github.com/ecklf/lg-luma/pull/37)은 아직 원본에서 검토 중이라, 합쳐질 때까지 이 포크의 preview에 들어 있어요.
 
 **수정 전: Luma 2.0.3**
 
@@ -50,9 +51,10 @@ LG 홈을 다시 불러오는 기능도 없어요. 대신 webOS 6의 LG 홈은 �
 
 ```mermaid
 flowchart LR
-  A[홈 버튼] --> B[webOS 앱 관리자<br>평소처럼 LG 홈 실행]
-  B --> C["/usr/bin/com.webos.app.home<br>위에 실행기를 마운트"]
-  C --> D[Luma]
+  A[홈 버튼] --> B[webOS 앱 관리자]
+  B -- 처음 누를 때 --> C["/usr/bin/com.webos.app.home<br>위에 실행기를 마운트"]
+  C --> D["LG 홈으로 실행되는 Luma<br>(자기만의 마운트 공간)"]
+  B -- 그다음부터, 다시 불러오기 메시지 --> D
 ```
 
 preview를 설치하고 Luma를 한 번 열어서 잘 되는지 확인한 다음, TV의 root SSH 셸에서 실행하세요.
@@ -68,9 +70,14 @@ sh /var/lib/luma-home6/home6.sh status
 sh /var/lib/luma-home6/home6.sh disable
 ```
 
+#### 다시 시작하지 않는 홈 버튼
+
+LG 앱 관리자는 홈 버튼을 두 가지 방식으로 처리해요. 앱 관리자에 등록한 홈은 "다시 불러오기" 메시지를 받고 그대로 다시 나타나지만, 등록하지 않은 홈은 종료된 뒤 처음부터 다시 실행돼요. 홈으로 등록할 수 있는 건 `/usr/bin/com.webos.app.home` 경로의 프로그램뿐이라서, Luma는 자기 프로세스만 보는 별도의 마운트 공간에서 그 경로로 자신을 실행한 다음 등록해요. 이제 홈 버튼을 누르면 실행 중인 Luma가 아이콘과 보던 화면 그대로 바로 나타나요. 시스템의 나머지 부분에는 여전히 실행기가 보이고, 혹시 전환에 실패하면 Luma는 예전처럼 실행되고 홈 버튼을 누를 때마다 다시 시작돼요.
+
 켜기 전에 읽어 주세요.
 
 - TV 한 대에서 테스트했어요: LG OLED48C1KNB, webOS 6.5.3.
+- 이전 preview에서 업그레이드한다면, 새 패키지로 위의 `enable` 명령을 한 번 더 실행해 주세요. 그래야 실행기가 Luma에게 LG 홈 신분으로 바꾸라고 알려 줘요.
 - 전원을 완전히 껐다 켜면, 부팅 훅이 홈을 Luma로 바꿀 때까지 2분쯤 LG 홈이 보여요.
 - Luma가 홈일 때 앱을 열면 LG 이용 약관 동의 창이 뜰 수 있어요.
 - Luma 자동 실행 훅을 먼저 끄고(`autostart.sh disable`), Luma를 지우기 전에는 `home6.sh`를 꺼 주세요.
