@@ -2,6 +2,76 @@
 
 A native launcher for rooted LG webOS TVs, inspired by Apple TV.
 
+English | [한국어](readme.ko.md)
+
+## About this fork
+
+My fork for an LG C1 on webOS 6 with Korean apps. Until these land upstream, it adds:
+
+- **Luma as Home on webOS 6**, which upstream's takeover doesn't support. See [how it works](#luma-as-home-on-webos-6).
+- **Korean app names** instead of blank tiles ([#22](https://github.com/ecklf/lg-luma/pull/22)).
+- **21 more app icons**, mostly Korean streaming and LG apps ([#18](https://github.com/ecklf/lg-luma/pull/18)).
+- **The right logos:** Glasshouse no longer gets the Das Erste logo ([#21](https://github.com/ecklf/lg-luma/pull/21)).
+- Your name in the Home greeting ([#16](https://github.com/ecklf/lg-luma/pull/16)) and a splash that
+  matches your background ([#17](https://github.com/ecklf/lg-luma/pull/17)), both by erikoliveira7.
+
+**Upstream Luma**
+
+<img src="docs/fork/upstream.webp" alt="Upstream Luma's app grid: placeholder icons for TVING, wavve, Coupang Play, the LG apps and Litefin, the Das Erste logo on Glasshouse, and Korean apps with no name">
+
+**This fork**
+
+<img src="docs/fork/fork.webp" alt="This fork's app grid with the same apps: their own icons, the Glasshouse logo and Korean names">
+
+Both show the same apps from my TV, rendered with Luma's desktop preview.
+
+**Download:** [Luma 2.0.3 preview 2](https://github.com/wonjoonSeol/lg-luma/releases/tag/v2.0.3-preview.2).
+Install the IPK with [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) or the
+[SSH steps](#ssh) below. No build tools needed.
+
+### Luma as Home on webOS 6
+
+Upstream's takeover only runs on webOS 10 and 11. On webOS 6 it stops at a version check, and the
+app manager there lacks the calls it uses to reload LG Home. But LG Home on webOS 6 is a single
+program file, so `home6.sh` mounts a small launcher over that file instead. The app manager keeps
+starting LG Home as usual and gets Luma. LG Home's own files stay untouched.
+
+```mermaid
+flowchart LR
+  A[Home button] --> B[webOS app manager<br>starts LG Home as usual]
+  B --> C["/usr/bin/com.webos.app.home<br>launcher mounted over it"]
+  C --> D[Luma]
+```
+
+Install the preview, open Luma once to check it runs, then in the TV's root SSH shell:
+
+```sh
+sh /media/developer/apps/usr/palm/applications/com.ecklf.luma/home6.sh enable
+```
+
+To check it or turn it off:
+
+```sh
+sh /var/lib/luma-home6/home6.sh status
+sh /var/lib/luma-home6/home6.sh disable
+```
+
+Read before you enable it:
+
+- Tested on one TV: LG OLED48C1KNB, webOS 6.5.3.
+- After a full cold boot, LG Home shows for about two minutes until the boot hook switches Home to Luma.
+- With Luma as Home, opening an app can bring up LG's user agreement prompt.
+- Turn off Luma's autostart hook first (`autostart.sh disable`), and disable `home6.sh` before
+  uninstalling Luma.
+
+Details are in the
+[development guide](https://github.com/wonjoonSeol/lg-luma/blob/webos6-home/development.md#webos-6-home-integration),
+and the source is on the [`webos6-home` branch](https://github.com/wonjoonSeol/lg-luma/tree/webos6-home).
+
+---
+
+_The rest of this readme is upstream's._
+
 > [!NOTE]
 > Tested on **LG OLED55C57** running **webOS 26**.\
 > External testing confirms compatibility with **webOS 6 and newer**.
