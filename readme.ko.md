@@ -6,27 +6,29 @@
 
 ## 이 포크에 대해
 
-webOS 6을 쓰는 LG C1에서 한국 앱을 쓰려고 만든 포크예요. 원본에 반영되기 전까지 이런 것들이 더 들어 있어요.
+webOS 6을 쓰는 LG C1용 포크예요. 원본 `main` 위에 **webOS 6에서 Luma를 홈으로 쓰는 기능**을 더했어요. 원본의 홈 교체 기능은 webOS 6을 지원하지 않거든요 ([동작 방식](#webos-6에서-luma를-홈으로-쓰기)). 배경에 맞춘 스플래시 화면([#17](https://github.com/ecklf/lg-luma/pull/17), erikoliveira7)도 원본에 합쳐질 때까지 같이 들어 있어요.
 
-- **webOS 6에서 Luma를 홈으로 쓰기.** 원본의 홈 교체 기능은 webOS 6을 지원하지 않아요. [동작 방식](#webos-6에서-luma를-홈으로-쓰기)을 참고하세요.
-- **한글 앱 이름**이 빈칸 대신 보여요 ([#22](https://github.com/ecklf/lg-luma/pull/22)).
-- **앱 아이콘 21개 추가.** 주로 한국 OTT와 LG 앱이에요 ([#18](https://github.com/ecklf/lg-luma/pull/18)).
-- **올바른 로고.** Glasshouse에 더 이상 Das Erste 로고가 붙지 않아요 ([#21](https://github.com/ecklf/lg-luma/pull/21)).
-- 홈 인사말에 이름 넣기([#16](https://github.com/ecklf/lg-luma/pull/16))와 배경에 맞춘 스플래시 화면([#17](https://github.com/ecklf/lg-luma/pull/17))도 들어 있어요. 둘 다 erikoliveira7이 만들었어요.
-
-**원본 Luma**
-
-<img src="docs/fork/upstream.webp" alt="원본 Luma의 앱 목록: TVING, wavve, 쿠팡플레이, LG 앱, Litefin은 기본 아이콘이고, Glasshouse에는 Das Erste 로고가 붙고, 한글 앱은 이름이 비어 있어요">
-
-**이 포크**
-
-<img src="docs/fork/fork.webp" alt="같은 앱이 들어 있는 이 포크의 앱 목록: 각 앱 아이콘, Glasshouse 로고, 한글 이름이 보여요">
-
-두 화면 모두 제 TV에 있는 같은 앱을 Luma의 데스크톱 미리보기로 그렸어요.
-
-**다운로드:** [Luma 2.0.3 preview 2](https://github.com/wonjoonSeol/lg-luma/releases/tag/v2.0.3-preview.2).
+**다운로드:** [Luma 2.2.0 preview 1](https://github.com/wonjoonSeol/lg-luma/releases/tag/v2.2.0-preview.1).
 IPK 파일을 [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop)나
 [영어 README의 SSH 방법](readme.md#ssh)으로 설치하면 돼요. 빌드 도구는 필요 없어요.
+
+### Luma에 합쳐진 수정
+
+이 포크에서 시작한 수정이에요. [v2.1.0](https://github.com/ecklf/lg-luma/releases/tag/v2.1.0)부터 공식 Luma에 들어 있어요.
+
+- **한글 앱 이름**이 빈칸 대신 보여요 ([#22](https://github.com/ecklf/lg-luma/pull/22)).
+- **한국 OTT와 LG 앱 아이콘** ([#18](https://github.com/ecklf/lg-luma/pull/18)). [#26](https://github.com/ecklf/lg-luma/pull/26)부터는 Luma가 모든 앱 아이콘을 TV에서 바로 읽어 와요.
+- **올바른 로고.** Glasshouse에 더 이상 Das Erste 로고가 붙지 않아요 ([#21](https://github.com/ecklf/lg-luma/pull/21)).
+
+**수정 전: Luma 2.0.3**
+
+<img src="docs/fork/upstream.webp" alt="Luma 2.0.3의 앱 목록: TVING, wavve, 쿠팡플레이, LG 앱, Litefin은 기본 아이콘이고, Glasshouse에는 Das Erste 로고가 붙고, 한글 앱은 이름이 비어 있어요">
+
+**수정 후: 세 가지 수정 적용**
+
+<img src="docs/fork/fork.webp" alt="같은 앱 목록에 세 가지 수정을 적용한 화면: 각 앱 아이콘, Glasshouse 로고, 한글 이름이 보여요">
+
+두 화면 모두 제 TV에 있는 같은 앱을 Luma의 데스크톱 미리보기로 그렸어요.
 
 ### webOS 6에서 Luma를 홈으로 쓰기
 

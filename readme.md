@@ -6,28 +6,34 @@ English | [한국어](readme.ko.md)
 
 ## About this fork
 
-My fork for an LG C1 on webOS 6 with Korean apps. Until these land upstream, it adds:
+My fork for an LG C1 on webOS 6. On top of upstream `main`, it adds **Luma as Home on webOS 6**,
+which upstream's takeover doesn't support ([how it works](#luma-as-home-on-webos-6)). It also
+carries [#17](https://github.com/ecklf/lg-luma/pull/17) by erikoliveira7, a splash that matches
+your background, until that is merged.
 
-- **Luma as Home on webOS 6**, which upstream's takeover doesn't support. See [how it works](#luma-as-home-on-webos-6).
-- **Korean app names** instead of blank tiles ([#22](https://github.com/ecklf/lg-luma/pull/22)).
-- **21 more app icons**, mostly Korean streaming and LG apps ([#18](https://github.com/ecklf/lg-luma/pull/18)).
-- **The right logos:** Glasshouse no longer gets the Das Erste logo ([#21](https://github.com/ecklf/lg-luma/pull/21)).
-- Your name in the Home greeting ([#16](https://github.com/ecklf/lg-luma/pull/16)) and a splash that
-  matches your background ([#17](https://github.com/ecklf/lg-luma/pull/17)), both by erikoliveira7.
-
-**Upstream Luma**
-
-<img src="docs/fork/upstream.webp" alt="Upstream Luma's app grid: placeholder icons for TVING, wavve, Coupang Play, the LG apps and Litefin, the Das Erste logo on Glasshouse, and Korean apps with no name">
-
-**This fork**
-
-<img src="docs/fork/fork.webp" alt="This fork's app grid with the same apps: their own icons, the Glasshouse logo and Korean names">
-
-Both show the same apps from my TV, rendered with Luma's desktop preview.
-
-**Download:** [Luma 2.0.3 preview 2](https://github.com/wonjoonSeol/lg-luma/releases/tag/v2.0.3-preview.2).
+**Download:** [Luma 2.2.0 preview 1](https://github.com/wonjoonSeol/lg-luma/releases/tag/v2.2.0-preview.1).
 Install the IPK with [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) or the
 [SSH steps](#ssh) below. No build tools needed.
+
+### Merged into Luma
+
+These fixes started in this fork and are part of official Luma since
+[v2.1.0](https://github.com/ecklf/lg-luma/releases/tag/v2.1.0):
+
+- **Korean app names** instead of blank tiles ([#22](https://github.com/ecklf/lg-luma/pull/22)).
+- **App icons** for Korean streaming and LG apps ([#18](https://github.com/ecklf/lg-luma/pull/18)).
+  Since [#26](https://github.com/ecklf/lg-luma/pull/26), Luma reads every app's icon straight from the TV.
+- **The right logos:** Glasshouse no longer gets the Das Erste logo ([#21](https://github.com/ecklf/lg-luma/pull/21)).
+
+**Before: Luma 2.0.3**
+
+<img src="docs/fork/upstream.webp" alt="Luma 2.0.3's app grid: placeholder icons for TVING, wavve, Coupang Play, the LG apps and Litefin, the Das Erste logo on Glasshouse, and Korean apps with no name">
+
+**After: with these three fixes**
+
+<img src="docs/fork/fork.webp" alt="The same app grid with the three fixes: each app's own icon, the Glasshouse logo and Korean names">
+
+Both show the same apps from my TV, rendered with Luma's desktop preview.
 
 ### Luma as Home on webOS 6
 
