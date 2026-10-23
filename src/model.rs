@@ -16,47 +16,52 @@ pub const BACKGROUNDS: [(&str, &str); 9] = [
     ("northern-lights", "Northern lights"),
 ];
 
+// Generic fallbacks use delimited words, so "game" does not match "endgame".
+// Non-ASCII bytes count as boundaries for localized titles. Curated vector
+// branding is selected separately by exact ID in branding.rs.
+fn contains_word(haystack: &str, needle: &str) -> bool {
+    let bytes = haystack.as_bytes();
+    haystack.match_indices(needle).any(|(start, matched)| {
+        let end = start + matched.len();
+        let before_ok = start == 0 || !bytes[start - 1].is_ascii_alphanumeric();
+        let after_ok = end == bytes.len() || !bytes[end].is_ascii_alphanumeric();
+        before_ok && after_ok
+    })
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct App {
     pub id: String,
     pub title: String,
     pub brand: String,
     pub category: String,
+    #[serde(skip)]
+    pub icon: Option<crate::app_artwork::Source>,
 }
 
 impl App {
     pub fn new(id: &str, title: &str) -> Self {
         let identity = format!("{id} {title}").to_lowercase();
-        let (brand, category) = [
-            ("livetv", "live-tv", "Streaming"),
-            ("netflix", "netflix", "Streaming"),
-            ("youtube", "youtube", "Streaming"),
-            ("appletv", "apple-tv", "Streaming"),
-            ("disney", "disney-plus", "Streaming"),
-            ("amazon", "prime-video", "Streaming"),
-            ("jellyfin", "jellyfin", "Streaming"),
-            ("arte", "arte", "Streaming"),
-            ("zdf", "zdf", "Streaming"),
-            ("ard", "das-erste", "Streaming"),
-            ("plex", "plex", "Streaming"),
+        let generic = [
             ("kodi", "kodi", "Streaming"),
-            ("spotify", "spotify", "Music"),
             ("moonlight", "moonlight", "Gaming"),
             ("limelight", "moonlight", "Gaming"),
             ("game", "gaming", "Gaming"),
             ("hbchannel", "homebrew", "Utilities"),
-            ("browser", "browser", "Utilities"),
         ]
         .into_iter()
         .find_map(|(needle, brand, category)| {
-            identity.contains(needle).then_some((brand, category))
+            contains_word(&identity, needle).then_some((brand, category))
         })
         .unwrap_or(("generic", "Utilities"));
+        let (brand, category) =
+            crate::branding::for_app(id).map_or(generic, |brand| (brand.key, brand.category));
         Self {
             id: id.into(),
             title: title.into(),
             brand: brand.into(),
             category: category.into(),
+            icon: None,
         }
     }
 }
@@ -89,10 +94,16 @@ pub struct Preferences {
     pub favorites: Option<Vec<String>>,
     pub hidden: Vec<String>,
     pub background: String,
-    pub show_names: bool,
+    pub show_home_names: bool,
+    pub show_app_names: bool,
     pub hour_24: bool,
     pub reduced_motion: bool,
+    pub show_seconds: bool,
+    /// Optional name appended to the Home greeting ("Good evening, Ana."). Empty = plain greeting.
+    pub greeting_name: String,
     pub input_modes: BTreeMap<String, InputMode>,
+    /// Custom names by input app ID; the TV's port and label stay visible as detail.
+    pub input_names: BTreeMap<String, String>,
     #[serde(deserialize_with = "crate::weather::deserialize_enabled")]
     pub show_weather: bool,
     #[serde(deserialize_with = "crate::weather::deserialize_location")]
@@ -109,10 +120,14 @@ impl Default for Preferences {
             favorites: None,
             hidden: vec![],
             background: "dunes".into(),
-            show_names: false,
+            show_home_names: false,
+            show_app_names: true,
             hour_24: false,
             reduced_motion: false,
+            show_seconds: false,
+            greeting_name: String::new(),
             input_modes: BTreeMap::new(),
+            input_names: BTreeMap::new(),
             show_weather: true,
             weather_location: None,
             temperature_unit: Unit::Celsius,
@@ -157,6 +172,28 @@ impl Preferences {
         }
     }
 
+    pub fn input_name(&self, input: &Input) -> Option<&str> {
+        self.input_names.get(&input.id).map(String::as_str)
+    }
+
+    /// The custom name if one is saved, otherwise the port ("HDMI 2").
+    pub fn input_title<'a>(&'a self, input: &'a Input) -> &'a str {
+        self.input_name(input).unwrap_or(&input.port)
+    }
+
+    /// Saves a cleaned name; an empty name restores the port title.
+    pub fn set_input_name(&mut self, id: &str, name: &str) -> bool {
+        if !valid_app_id(id) {
+            return false;
+        }
+        let name = clean_input_name(name);
+        if name.is_empty() {
+            self.input_names.remove(id).is_some()
+        } else {
+            self.input_names.insert(id.into(), name.clone()) != Some(name)
+        }
+    }
+
     pub fn sanitize(&mut self) {
         if !BACKGROUNDS.iter().any(|(id, _)| *id == self.background) {
             self.background = "dunes".into();
@@ -171,7 +208,22 @@ impl Preferences {
         }
         clean(&mut self.hidden);
         self.input_modes.retain(|id, _| valid_app_id(id));
+        self.input_names = std::mem::take(&mut self.input_names)
+            .into_iter()
+            .filter(|(id, _)| valid_app_id(id))
+            .map(|(id, name)| (id, clean_input_name(&name)))
+            .filter(|(_, name)| !name.is_empty())
+            .take(128)
+            .collect();
     }
+}
+
+pub const INPUT_NAME_LIMIT: usize = 40;
+
+pub fn clean_input_name(name: &str) -> String {
+    let clean: String = name.chars().filter(|c| !c.is_control()).collect();
+    let clean: String = clean.trim().chars().take(INPUT_NAME_LIMIT).collect();
+    clean.trim_end().into()
 }
 
 pub fn valid_app_id(id: &str) -> bool {
@@ -183,7 +235,7 @@ pub fn valid_app_id(id: &str) -> bool {
 }
 
 pub fn demo_inventory() -> Inventory {
-    Inventory {
+    let mut inventory = Inventory {
         apps: [
             ("com.webos.app.livetv", "Live TV"),
             ("netflix", "Netflix"),
@@ -201,6 +253,13 @@ pub fn demo_inventory() -> Inventory {
             ("com.arte.tv", "ARTE"),
             ("de.zdf.app.zdfm3", "ZDF"),
             ("ard.mediathek", "Das Erste"),
+            ("coupangplay", "Coupang Play"),
+            ("com.frograms.watchaplay.webos", "Watcha Play"),
+            ("pooq", "Wavve"),
+            ("com.cmb.rainbowtv", "Rainbow TV"),
+            ("com.lgtvod.kr.app", "LG TV VOD"),
+            ("com.webos.app.igallery", "올레드 갤러리"),
+            ("com.webos.app.roomconnect", "룸투룸 셰어"),
         ]
         .into_iter()
         .map(|(id, title)| App::new(id, title))
@@ -225,5 +284,12 @@ pub fn demo_inventory() -> Inventory {
                 connected: Some(false),
             },
         ],
+    };
+    // Desktop-only artwork gallery. TV inventory is always read from services.
+    for brand in crate::branding::BRANDS {
+        if !inventory.apps.iter().any(|app| app.brand == brand.key) {
+            inventory.apps.push(App::new(brand.ids[0], brand.title));
+        }
     }
+    inventory
 }

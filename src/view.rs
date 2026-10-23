@@ -4,8 +4,8 @@ use crate::{
     model::{App, BACKGROUNDS, CATEGORIES, Input, InputMode},
     renderer::{Color, Draw, TextStyle, WHITE},
     state::{
-        APPS_COLUMNS, Control, HOME_TILE_PITCH, HOME_TILE_WIDTH, KEYS, Overlay, Page, Rect, State,
-        Subpage, Target, TextField, WEATHER_SECTION,
+        APPS_COLUMNS, Control, HOME_TILE_PITCH, HOME_TILE_WIDTH, KEYS, Overlay, Page, Rect,
+        SYSTEM_SECTION, State, Subpage, Target, TextField, WEATHER_SECTION,
     },
     weather::{self, Unit},
 };
@@ -21,28 +21,24 @@ const GRID_PITCH: f32 = 296.4;
 
 pub struct Assets {
     pub root: PathBuf,
-    pub icons: BTreeMap<String, String>,
-    pub colors: BTreeMap<String, [u8; 3]>,
     pub version: String,
     pub metrics: BTreeMap<String, BTreeMap<char, f32>>,
+    pub artwork: crate::app_artwork::Service,
 }
 impl Assets {
-    pub fn load(root: PathBuf) -> Result<Self, String> {
+    pub fn load(root: PathBuf, webos: bool) -> Result<Self, String> {
         let load = |file: &str| {
             std::fs::read(root.join(file))
                 .map_err(|e| format!("Native assets are missing: {e}. Run pnpm assets."))
         };
-        let icons = serde_json::from_slice(&load("icons.json")?).map_err(|e| e.to_string())?;
-        let colors = serde_json::from_slice(&load("colors.json")?).map_err(|e| e.to_string())?;
         let version = String::from_utf8(load("version.txt")?).map_err(|e| e.to_string())?;
         let metrics =
             serde_json::from_slice(&load("font-metrics.json")?).map_err(|e| e.to_string())?;
         Ok(Self {
             root,
-            icons,
-            colors,
             version,
             metrics,
+            artwork: crate::app_artwork::Service::new(webos),
         })
     }
     fn path(&self, path: impl AsRef<Path>) -> String {
@@ -217,7 +213,8 @@ impl Scene {
                 Draw::Shape(_, _, _, color)
                 | Draw::Shadow(_, _, _, color)
                 | Draw::Text(_, _, _, color, _)
-                | Draw::TintedImage(_, _, _, _, color) => apply(color),
+                | Draw::TintedImage(_, _, _, _, color)
+                | Draw::AppImage(_, _, color) => apply(color),
                 Draw::RoundedGradient(_, _, a, b) => {
                     apply(a);
                     apply(b);
@@ -392,7 +389,11 @@ fn header(
     pill_width: f32,
 ) {
     let language = state.preferences.language;
-    let clock = language.clock(now, state.preferences.hour_24);
+    let clock = language.clock(
+        now,
+        state.preferences.hour_24,
+        state.preferences.show_seconds,
+    );
     out.text(
         clock,
         Rect::new(84., 64.8, 300., 24.),
@@ -484,20 +485,16 @@ fn tile(
         if focused { 14. } else { 9. },
         if focused { 0.4 } else { 0.165 },
     );
-    let logos = [
-        "netflix",
-        "youtube",
-        "apple-tv",
-        "disney-plus",
-        "prime-video",
-        "jellyfin",
-        "arte",
-        "zdf",
-        "das-erste",
-    ];
-    let logo = logos.contains(&app.brand.as_str());
-    let installed = (!logo).then(|| assets.icons.get(&app.id)).flatten();
-    if let Some(rgb) = installed.and_then(|_| assets.colors.get(&app.id)) {
+    let logo = crate::branding::for_key(&app.brand);
+    let artwork = logo
+        .is_none()
+        .then(|| {
+            app.icon
+                .as_ref()
+                .and_then(|source| assets.artwork.get(source))
+        })
+        .flatten();
+    if let Some(rgb) = artwork.as_ref().map(|image| &image.color) {
         out.shape(
             rect,
             19.2,
@@ -509,35 +506,16 @@ fn tile(
             ],
         );
     } else {
-        let brand = if app.brand == "live-tv" {
-            "generic"
-        } else {
-            &app.brand
-        };
         out.image(
-            assets.path(format!("surfaces/{brand}.png")),
+            assets.path(format!("surfaces/{}.png", app.brand)),
             rect,
             19.2,
             false,
         );
     }
     out.border(rect, 19.2, 1., c(0xffffff, 0.063));
-    if logo {
-        let ratio = match app.brand.as_str() {
-            "netflix" => 0.76,
-            "youtube" => 0.74,
-            "apple-tv" => 0.43,
-            "disney-plus" | "prime-video" => 0.72,
-            "jellyfin" => 0.83,
-            "arte" => 0.58,
-            "zdf" => 0.50,
-            _ => 0.70,
-        };
-        let h = if app.brand == "disney-plus" {
-            105.6
-        } else {
-            88.
-        };
+    if let Some(brand) = logo {
+        let (ratio, h) = brand.artwork_size();
         out.image(
             assets.path(format!("logos/{}.lvec", app.brand)),
             Rect::new(
@@ -549,18 +527,17 @@ fn tile(
             0.,
             true,
         );
-    } else if let Some(icon) = installed {
-        out.image(
-            assets.path(icon),
+    } else if let Some(image) = artwork {
+        out.draw.push(Draw::AppImage(
+            image,
             Rect::new(
                 rect.x + rect.w * 0.16,
                 rect.y + rect.h * 0.16,
                 rect.w * 0.68,
                 rect.h * 0.68,
             ),
-            0.,
-            true,
-        );
+            [1.; 4],
+        ));
     } else {
         brand_mark(out, assets, app, rect, state.preferences.language);
     }
@@ -759,9 +736,9 @@ fn home(out: &mut Scene, state: &State, assets: &Assets, now: OffsetDateTime) {
         c(0xf5f5f5, 0.72),
         false,
     );
-    let greeting = language.greeting(now.hour());
+    let greeting = language.greeting(now.hour(), &state.preferences.greeting_name);
     out.text(
-        greeting,
+        &greeting,
         Rect::new(84., 265. - shift - s, 1500., 95.),
         text(90.4, 500, -0.065).leading(1.05),
         WHITE,
@@ -787,7 +764,7 @@ fn home(out: &mut Scene, state: &State, assets: &Assets, now: OffsetDateTime) {
         );
     }
     let apps = state.apps();
-    let names = state.preferences.show_names;
+    let names = state.preferences.show_home_names;
     let mut grid_height = FACE_HEIGHT;
     if state.loading && state.inventory.apps.is_empty() {
         for index in 0..6 {
@@ -911,7 +888,8 @@ fn home(out: &mut Scene, state: &State, assets: &Assets, now: OffsetDateTime) {
             c(0xd6d6d6, 0.24),
             c(0xa0a0a0, 0.10),
         ));
-        let icon = input_icon(input);
+        let name = state.preferences.input_name(input);
+        let icon = input_icon(input, name);
         let size = if icon == "apple-tv" { 41.6 } else { 35.2 };
         out.icon(
             assets,
@@ -925,14 +903,14 @@ fn home(out: &mut Scene, state: &State, assets: &Assets, now: OffsetDateTime) {
             c(0xdedede, 1.),
         );
         out.text(
-            &input.port,
+            state.preferences.input_title(input),
             Rect::new(rect.x + 93., rect.y + 24.3, 450., 28.8),
             text(24., 500, -0.03),
             WHITE,
             false,
         );
         out.text(
-            input_status(input, language),
+            input_status(input, name.is_some(), language),
             Rect::new(rect.x + 93., rect.y + 58.7, 450., 20.),
             text(13.12, 400, 0.).leading(1.5),
             c(0xe8e8e8, 0.48),
@@ -1230,13 +1208,17 @@ fn library(out: &mut Scene, state: &State, assets: &Assets) {
         );
     }
     let mut y = 270.4;
+    let names = state.preferences.show_app_names;
     for row in apps.chunks(APPS_COLUMNS) {
         let row_height = FACE_HEIGHT
-            + 18.4
-            + row
-                .iter()
-                .map(|app| caption_height(state, assets, app, 270.))
-                .fold(49.28, f32::max);
+            + if names {
+                18.4 + row
+                    .iter()
+                    .map(|app| caption_height(state, assets, app, 270.))
+                    .fold(49.28, f32::max)
+            } else {
+                0.
+            };
         for (column, app) in row.iter().enumerate() {
             tile(
                 out,
@@ -1244,7 +1226,7 @@ fn library(out: &mut Scene, state: &State, assets: &Assets) {
                 assets,
                 app,
                 Rect::new(84. + column as f32 * GRID_PITCH, y - s, 270., FACE_HEIGHT),
-                true,
+                names,
                 favorites.contains(&app.id),
             );
         }
@@ -1285,7 +1267,7 @@ struct Row<'a> {
 }
 fn row(out: &mut Scene, state: &State, assets: &Assets, row: Row<'_>) {
     let focused = state.focus == row.target;
-    let bright = focused || row.selected;
+    let bright = focused;
     let radius = if row.description.is_some() { 20. } else { 48. };
     if bright {
         out.draw.push(Draw::RoundedGradient(
@@ -1627,7 +1609,7 @@ fn location_settings(out: &mut Scene, state: &State, assets: &Assets) {
 fn settings(out: &mut Scene, state: &State, assets: &Assets) {
     let language = state.preferences.language;
     let s = state.scroll;
-    for (index, key) in ["interface", "background", "weather", "inputs"]
+    for (index, key) in ["interface", "background", "weather", "inputs", "system"]
         .into_iter()
         .enumerate()
     {
@@ -1643,14 +1625,32 @@ fn settings(out: &mut Scene, state: &State, assets: &Assets) {
             c(0xeeeeee, 0.73)
         };
         if state.section == index && state.subpage.is_some() {
+            let clock_path = match state.subpage {
+                Some(Subpage::ClockFormat) => Some(format!(
+                    "{} › {}",
+                    language.t("clock"),
+                    language.t("clockFormat")
+                )),
+                Some(Subpage::TimeFormat) => Some(format!(
+                    "{} › {}",
+                    language.t("clock"),
+                    language.t("timeFormat")
+                )),
+                _ => None,
+            };
             let sub = match &state.subpage {
-                Some(Subpage::Clock) => language.t("clockFormat"),
+                Some(Subpage::AppNames) => language.t("appNames"),
+                Some(Subpage::Greeting) => language.t("greeting"),
+                Some(Subpage::Clock) => language.t("clock"),
+                Some(Subpage::ClockFormat | Subpage::TimeFormat) => clock_path.as_deref().unwrap(),
                 Some(Subpage::Input(id)) => state
                     .inventory
                     .inputs
                     .iter()
                     .find(|input| &input.id == id)
-                    .map_or(language.t("inputs"), |input| input.port.as_str()),
+                    .map_or(language.t("inputs"), |input| {
+                        state.preferences.input_title(input)
+                    }),
                 Some(Subpage::WeatherLocation) => language.t("location"),
                 Some(Subpage::Temperature) => language.t("temperature"),
                 Some(Subpage::Language) => language.t("language"),
@@ -1670,10 +1670,20 @@ fn settings(out: &mut Scene, state: &State, assets: &Assets) {
                 Rect::new(rect.x + 24.2 + parent_width + 5., rect.y + 27., 17., 17.),
                 [color[0], color[1], color[2], color[3] * 0.6],
             );
+            let sub_width = rect.w - 24.2 - parent_width - 28. - 24.2;
+            let mut sub_style = text(20.8, 550, -0.02);
+            if clock_path.is_some() {
+                sub_style.size *= (sub_width / assets.width(sub, sub_style)).min(1.);
+            }
             out.text(
                 sub,
-                Rect::new(rect.x + 24.2 + parent_width + 28., rect.y + 23.5, 245., 25.),
-                text(20.8, 550, -0.02),
+                Rect::new(
+                    rect.x + 24.2 + parent_width + 28.,
+                    rect.y + 23.5,
+                    sub_width,
+                    25.,
+                ),
+                sub_style,
                 color,
                 false,
             );
@@ -1702,17 +1712,30 @@ fn settings(out: &mut Scene, state: &State, assets: &Assets) {
     }
     if let Some(subpage) = &state.subpage {
         let start = out.draw.len();
-        if *subpage == Subpage::WeatherLocation {
-            location_settings(out, state, assets);
+        if matches!(
+            subpage,
+            Subpage::WeatherLocation | Subpage::Greeting | Subpage::AppNames | Subpage::Clock
+        ) {
+            match subpage {
+                Subpage::WeatherLocation => location_settings(out, state, assets),
+                Subpage::Greeting => greeting_settings(out, state, assets),
+                Subpage::AppNames => app_name_settings(out, state, assets),
+                Subpage::Clock => clock_settings(out, state, assets),
+                _ => unreachable!(),
+            }
             if let Some(opened) = state.panel_started {
                 out.fade(start, (opened.elapsed().as_secs_f32() / 0.15).min(1.), 1.);
             }
             return;
         }
         let options: Vec<(&str, Option<&str>, bool)> = match subpage {
-            Subpage::Clock => vec![
+            Subpage::ClockFormat => vec![
                 (language.t("hour12"), None, !state.preferences.hour_24),
                 (language.t("hour24"), None, state.preferences.hour_24),
+            ],
+            Subpage::TimeFormat => vec![
+                ("HH:MM", None, !state.preferences.show_seconds),
+                ("HH:MM:SS", None, state.preferences.show_seconds),
             ],
             Subpage::Input(id) => {
                 let current = state
@@ -1751,7 +1774,9 @@ fn settings(out: &mut Scene, state: &State, assets: &Assets) {
                     state.preferences.temperature_unit == Unit::Fahrenheit,
                 ),
             ],
-            Subpage::WeatherLocation => unreachable!(),
+            Subpage::WeatherLocation | Subpage::Greeting | Subpage::AppNames | Subpage::Clock => {
+                unreachable!()
+            }
             Subpage::Language => Language::ALL
                 .into_iter()
                 .map(|option| (option.name(), None, option == language))
@@ -1775,6 +1800,9 @@ fn settings(out: &mut Scene, state: &State, assets: &Assets) {
                 },
             );
         }
+        if let Subpage::Input(id) = subpage {
+            input_name_rows(out, state, assets, id, 164.8 + 3. * 102.7 + 16. - s);
+        }
         if let Some(opened) = state.panel_started {
             out.fade(start, (opened.elapsed().as_secs_f32() / 0.15).min(1.), 1.);
         }
@@ -1783,40 +1811,31 @@ fn settings(out: &mut Scene, state: &State, assets: &Assets) {
     match state.section {
         0 => {
             for (position, (index, key, icon, value, chevron)) in [
-                (
-                    0,
-                    "showAppNames",
-                    "type",
-                    if state.preferences.show_names {
-                        language.t("stateOn")
-                    } else {
-                        language.t("stateOff")
-                    },
-                    false,
-                ),
-                (
-                    1,
-                    "clockFormat",
-                    "clock",
-                    if state.preferences.hour_24 {
-                        language.t("hour24")
-                    } else {
-                        language.t("hour12")
-                    },
-                    true,
-                ),
+                (0, "appNames", "type", None, true),
+                (1, "clock", "clock", None, true),
                 (
                     2,
                     "reducedMotion",
                     "motion",
-                    if state.preferences.reduced_motion {
+                    Some(if state.preferences.reduced_motion {
                         language.t("stateOn")
                     } else {
                         language.t("stateOff")
-                    },
+                    }),
                     false,
                 ),
-                (4, "language", "language", language.name(), true),
+                (4, "language", "language", Some(language.name()), true),
+                (
+                    6,
+                    "greeting",
+                    "type",
+                    Some(if state.preferences.greeting_name.trim().is_empty() {
+                        language.t("stateOff")
+                    } else {
+                        state.preferences.greeting_name.as_str()
+                    }),
+                    true,
+                ),
             ]
             .into_iter()
             .enumerate()
@@ -1830,47 +1849,13 @@ fn settings(out: &mut Scene, state: &State, assets: &Assets) {
                         rect: Rect::new(640., 164.8 + position as f32 * 84. - s, 1120., 72.),
                         title: language.t(key),
                         icon: Some(icon),
-                        value: Some(value),
+                        value,
                         description: None,
                         selected: false,
                         chevron,
                     },
                 );
             }
-            row(
-                out,
-                state,
-                assets,
-                Row {
-                    target: Target::Setting(3),
-                    rect: Rect::new(640., 516.8 - s, 1120., 72.),
-                    title: if state.loading {
-                        language.t("refreshNotice")
-                    } else {
-                        language.t("refreshApps")
-                    },
-                    icon: Some("refresh"),
-                    value: None,
-                    description: None,
-                    selected: false,
-                    chevron: false,
-                },
-            );
-            row(
-                out,
-                state,
-                assets,
-                Row {
-                    target: Target::Setting(5),
-                    rect: Rect::new(640., 600.8 - s, 1120., 72.),
-                    title: language.t("quitApp"),
-                    icon: Some("power"),
-                    value: None,
-                    description: None,
-                    selected: false,
-                    chevron: false,
-                },
-            );
         }
         1 => {
             for (index, (id, _title)) in BACKGROUNDS.iter().enumerate() {
@@ -1913,6 +1898,39 @@ fn settings(out: &mut Scene, state: &State, assets: &Assets) {
             }
         }
         WEATHER_SECTION => weather_settings(out, state, assets),
+        SYSTEM_SECTION => {
+            for (position, (index, title, icon)) in [
+                (
+                    3,
+                    language.t(if state.loading {
+                        "refreshNotice"
+                    } else {
+                        "refreshApps"
+                    }),
+                    "refresh",
+                ),
+                (5, language.t("quitApp"), "power"),
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                row(
+                    out,
+                    state,
+                    assets,
+                    Row {
+                        target: Target::Setting(index),
+                        rect: Rect::new(640., 164.8 + position as f32 * 84. - s, 1120., 72.),
+                        title,
+                        icon: Some(icon),
+                        value: None,
+                        description: None,
+                        selected: false,
+                        chevron: false,
+                    },
+                );
+            }
+        }
         _ => {
             for (index, input) in state.inventory.inputs.iter().enumerate() {
                 let mode = state
@@ -1928,14 +1946,21 @@ fn settings(out: &mut Scene, state: &State, assets: &Assets) {
                     Row {
                         target: Target::InputMode(input.id.clone()),
                         rect: Rect::new(640., 164.8 + index as f32 * 102.7 - s, 1120., 90.7),
-                        title: &input.port,
-                        icon: Some(&format!("input-{}", input_icon(input))),
+                        title: state.preferences.input_title(input),
+                        icon: Some(&format!(
+                            "input-{}",
+                            input_icon(input, state.preferences.input_name(input))
+                        )),
                         value: Some(language.t(match mode {
                             InputMode::On => "stateOn",
                             InputMode::Off => "stateOff",
                             InputMode::Auto => "stateAuto",
                         })),
-                        description: Some(&input_status(input, language)),
+                        description: Some(&input_status(
+                            input,
+                            state.preferences.input_name(input).is_some(),
+                            language,
+                        )),
                         selected: false,
                         chevron: true,
                     },
@@ -1975,8 +2000,181 @@ fn settings(out: &mut Scene, state: &State, assets: &Assets) {
     }
 }
 
-fn input_icon(input: &Input) -> &'static str {
-    let name = input.title.to_lowercase().replace(' ', "");
+fn greeting_settings(out: &mut Scene, state: &State, assets: &Assets) {
+    let language = state.preferences.language;
+    let description = if state.text_input_active() && state.keyboard_field == TextField::Name {
+        format!("{}|", state.greeting_name_draft)
+    } else if state.preferences.greeting_name.is_empty() {
+        language.t("stateOff").into()
+    } else {
+        state.preferences.greeting_name.clone()
+    };
+    row(
+        out,
+        state,
+        assets,
+        Row {
+            target: Target::GreetingName,
+            rect: Rect::new(640., 164.8 - state.scroll, 1120., 90.7),
+            title: language.t("name"),
+            icon: Some("type"),
+            value: None,
+            description: Some(&description),
+            selected: false,
+            chevron: true,
+        },
+    );
+    // Always present so completing name entry cannot move a clicked control.
+    row(
+        out,
+        state,
+        assets,
+        Row {
+            target: Target::GreetingNameClear,
+            rect: Rect::new(640., 267.5 - state.scroll, 1120., 72.),
+            title: language.t("clearName"),
+            icon: Some("refresh"),
+            value: None,
+            description: None,
+            selected: false,
+            chevron: false,
+        },
+    );
+}
+
+fn clock_settings(out: &mut Scene, state: &State, assets: &Assets) {
+    let language = state.preferences.language;
+    for (index, (target, key, value)) in [
+        (
+            Target::ClockFormat,
+            "clockFormat",
+            language.t(if state.preferences.hour_24 {
+                "hour24"
+            } else {
+                "hour12"
+            }),
+        ),
+        (
+            Target::ClockTimeFormat,
+            "timeFormat",
+            if state.preferences.show_seconds {
+                "HH:MM:SS"
+            } else {
+                "HH:MM"
+            },
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        row(
+            out,
+            state,
+            assets,
+            Row {
+                target,
+                rect: Rect::new(640., 164.8 + index as f32 * 84. - state.scroll, 1120., 72.),
+                title: language.t(key),
+                icon: None,
+                value: Some(value),
+                description: None,
+                selected: false,
+                chevron: true,
+            },
+        );
+    }
+}
+
+fn app_name_settings(out: &mut Scene, state: &State, assets: &Assets) {
+    let language = state.preferences.language;
+    for (index, (target, title, enabled)) in [
+        (
+            Target::AppNamesHome,
+            "showOnHome",
+            state.preferences.show_home_names,
+        ),
+        (
+            Target::AppNamesApps,
+            "showOnApps",
+            state.preferences.show_app_names,
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        row(
+            out,
+            state,
+            assets,
+            Row {
+                target,
+                rect: Rect::new(640., 164.8 + index as f32 * 84. - state.scroll, 1120., 72.),
+                title: language.t(title),
+                icon: None,
+                value: Some(language.t(if enabled { "stateOn" } else { "stateOff" })),
+                description: None,
+                selected: false,
+                chevron: false,
+            },
+        );
+    }
+}
+
+fn input_name_rows(out: &mut Scene, state: &State, assets: &Assets, id: &str, y: f32) {
+    let language = state.preferences.language;
+    let custom = state.preferences.input_names.get(id);
+    let editing = state.text_input_active() && state.keyboard_field == TextField::InputName;
+    let description = if editing {
+        format!("{}|", state.input_name)
+    } else {
+        custom
+            .cloned()
+            .unwrap_or_else(|| language.t("inputNameHint").into())
+    };
+    row(
+        out,
+        state,
+        assets,
+        Row {
+            target: Target::InputRename,
+            rect: Rect::new(640., y, 1120., 90.7),
+            title: language.t("renameInput"),
+            icon: Some("type"),
+            value: None,
+            description: Some(&description),
+            selected: false,
+            chevron: false,
+        },
+    );
+    if custom.is_some() {
+        row(
+            out,
+            state,
+            assets,
+            Row {
+                target: Target::InputNameReset,
+                rect: Rect::new(640., y + 102.7, 1120., 72.),
+                title: language.t("clearName"),
+                icon: Some("refresh"),
+                value: None,
+                description: None,
+                selected: false,
+                chevron: false,
+            },
+        );
+    }
+}
+
+/// A custom name such as "PS5" can choose the icon; otherwise the TV's label.
+fn input_icon(input: &Input, custom: Option<&str>) -> &'static str {
+    custom
+        .map(device_icon)
+        .filter(|icon| *icon != "hdmi")
+        .unwrap_or_else(|| device_icon(&input.title))
+}
+
+fn device_icon(name: &str) -> &'static str {
+    let name = name.to_lowercase().replace(' ', "");
     if name.contains("playstation") || ["ps1", "ps2", "ps3", "ps4", "ps5"].contains(&name.as_str())
     {
         "playstation"
@@ -2003,13 +2201,22 @@ fn input_icon(input: &Input) -> &'static str {
         "hdmi"
     }
 }
-fn input_status(input: &Input, language: Language) -> String {
-    match input.connected {
-        Some(false) => language.t("noDevice").into(),
-        None => language.t("externalInput").into(),
-        Some(true) if input.title == input.port => language.t("connected").into(),
-        Some(true) => format!("{} · {}", input.title, language.t("connected")),
+/// Detail under an input title: the TV's own label (when connected and not just
+/// the port), the port when a custom name replaces it, then the status.
+pub fn input_status(input: &Input, renamed: bool, language: Language) -> String {
+    let mut parts = vec![];
+    if input.connected == Some(true) && input.title != input.port {
+        parts.push(input.title.as_str());
     }
+    if renamed {
+        parts.push(input.port.as_str());
+    }
+    parts.push(match input.connected {
+        Some(false) => language.t("noDevice"),
+        None => language.t("externalInput"),
+        Some(true) => language.t("connected"),
+    });
+    parts.join(" · ")
 }
 
 fn keycap(out: &mut Scene, label: &str, x: f32, y: f32, w: f32, small: bool) {
@@ -2309,10 +2516,11 @@ fn keyboard(out: &mut Scene, state: &State, assets: &Assets) {
     ));
     out.border(panel, 27.2, 1., c(0xffffff, 0.12));
     out.text(
-        if state.keyboard_field == TextField::Location {
-            language.t("cityPostcode")
-        } else {
-            language.t("findApp")
+        match state.keyboard_field {
+            TextField::Location => language.t("cityPostcode"),
+            TextField::Name => language.t("greetingName"),
+            TextField::InputName => language.t("inputName"),
+            TextField::Apps => language.t("findApp"),
         },
         Rect::new(389., 324., 1000., 44.),
         text(37.6, 500, -0.055).leading(1.1),
