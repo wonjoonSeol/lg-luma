@@ -85,6 +85,7 @@ export function normalizeAndVerifyPackage(bytes, manifest) {
     manifest.largeIcon,
     'autostart.sh',
     'home.sh',
+    'home6.sh',
     'home.cjs',
     'splash.png',
     'lib/libSDL2-2.0.so.0',
@@ -167,6 +168,7 @@ export function normalizeAndVerifyPackage(bytes, manifest) {
       file.type === '5' ||
       file.name.endsWith('/autostart.sh') ||
       file.name.endsWith('/home.sh') ||
+      file.name.endsWith('/home6.sh') ||
       file.name.endsWith(`/${manifest.main}`);
     file.header.write(executable ? '0000755\0' : '0000644\0', 100, 8, 'ascii');
     file.header.fill(32, 148, 156);
