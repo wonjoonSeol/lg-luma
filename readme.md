@@ -15,6 +15,8 @@ are merged, it also carries two icon fixes:
 - Icons show as soon as they are decoded: the Apps page fills in about 3x faster
   ([#36](https://github.com/ecklf/lg-luma/pull/36)).
 
+<img src="docs/fork/icon-delivery-timing.png" alt="Icons on screen over time on an LG C1: before the fix the 15 icons take 751 ms to fill in, two at a time about every 107 ms; after it they take 240 ms, one every 16 ms">
+
 <img src="docs/fork/tv-apps.webp" alt="Luma as Home on an LG C1 with webOS 6: the Apps page with each app's own icon and Korean names">
 
 Luma as Home on my LG C1 (webOS 6.5.3), captured on the TV.
