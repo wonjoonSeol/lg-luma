@@ -76,8 +76,12 @@ impl Options {
             if let Some(argument) = args.next() {
                 let metadata: serde_json::Value =
                     serde_json::from_str(&argument).map_err(|error| error.to_string())?;
-                result.webos_home = metadata.get("nid").and_then(serde_json::Value::as_str)
-                    == Some(platform::HOME_ID);
+                // SAM names the launched id `nid` on webOS 10/11 and `appId` on
+                // webOS 6 (a C1 on 6.5.3 launches Home with appId only).
+                result.webos_home = ["nid", "appId"].iter().any(|key| {
+                    metadata.get(*key).and_then(serde_json::Value::as_str)
+                        == Some(platform::HOME_ID)
+                });
             }
             eprintln!("Luma webOS launch parameters accepted");
         }
