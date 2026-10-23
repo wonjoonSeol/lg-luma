@@ -346,8 +346,9 @@ SDL-webOS also tries its own registration at startup and logs `Failed to registe
 its `getAppInfo` call fails; Luma's registration does not depend on it.
 
 Verified on an LG C1 with webOS 6.5.3: Home launched after HDMI 4 kept the same process ID, logged
-the `relaunch` event and returned to the foreground with its decoded icons. Inventory reads work
-under LG Home's identity.
+the `relaunch` event and returned to the foreground with its decoded icons. Inventory reads and
+app launches work under LG Home's identity; an app opened from Luma still passes through LG's
+agreement screen (`com.webos.app.eula`) when one is due, as it does from LG Home.
 
 ## Manual extra-app preview
 
