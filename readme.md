@@ -25,13 +25,19 @@ Install the IPK with [webOS Dev Manager](https://github.com/webosbrew/dev-manage
 
 ### Merged into Luma
 
-These fixes started in this fork and are part of official Luma since
+These fixes started in this fork. Each one is merged into upstream `main` and released in
 [v2.1.0](https://github.com/ecklf/lg-luma/releases/tag/v2.1.0):
 
-- **Korean app names** instead of blank tiles ([#22](https://github.com/ecklf/lg-luma/pull/22)).
-- **App icons** for Korean streaming and LG apps ([#18](https://github.com/ecklf/lg-luma/pull/18)).
+- **Korean app names** instead of blank tiles ([#22](https://github.com/ecklf/lg-luma/pull/22),
+  merged in [`14b18f8`](https://github.com/ecklf/lg-luma/commit/14b18f8)).
+- **App icons** for Korean streaming and LG apps ([#18](https://github.com/ecklf/lg-luma/pull/18),
+  merged in [`3e256f6`](https://github.com/ecklf/lg-luma/commit/3e256f6)).
   Since [#26](https://github.com/ecklf/lg-luma/pull/26), Luma reads every app's icon straight from the TV.
-- **The right logos:** Glasshouse no longer gets the Das Erste logo ([#21](https://github.com/ecklf/lg-luma/pull/21)).
+- **The right logos:** Glasshouse no longer gets the Das Erste logo
+  ([#21](https://github.com/ecklf/lg-luma/pull/21), merged in [`27802ac`](https://github.com/ecklf/lg-luma/commit/27802ac)).
+
+Still open upstream, and included in this fork's preview until they are merged:
+[#35](https://github.com/ecklf/lg-luma/pull/35) and [#36](https://github.com/ecklf/lg-luma/pull/36).
 
 **Before: Luma 2.0.3**
 

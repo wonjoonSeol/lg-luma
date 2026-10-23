@@ -21,11 +21,13 @@ IPK 파일을 [webOS Dev Manager](https://github.com/webosbrew/dev-manager-deskt
 
 ### Luma에 합쳐진 수정
 
-이 포크에서 시작한 수정이에요. [v2.1.0](https://github.com/ecklf/lg-luma/releases/tag/v2.1.0)부터 공식 Luma에 들어 있어요.
+이 포크에서 시작한 수정이에요. 하나하나 모두 원본 `main`에 합쳐졌고, [v2.1.0](https://github.com/ecklf/lg-luma/releases/tag/v2.1.0)으로 출시됐어요.
 
-- **한글 앱 이름**이 빈칸 대신 보여요 ([#22](https://github.com/ecklf/lg-luma/pull/22)).
-- **한국 OTT와 LG 앱 아이콘** ([#18](https://github.com/ecklf/lg-luma/pull/18)). [#26](https://github.com/ecklf/lg-luma/pull/26)부터는 Luma가 모든 앱 아이콘을 TV에서 바로 읽어 와요.
-- **올바른 로고.** Glasshouse에 더 이상 Das Erste 로고가 붙지 않아요 ([#21](https://github.com/ecklf/lg-luma/pull/21)).
+- **한글 앱 이름**이 빈칸 대신 보여요 ([#22](https://github.com/ecklf/lg-luma/pull/22), [`14b18f8`](https://github.com/ecklf/lg-luma/commit/14b18f8)에서 합쳐짐).
+- **한국 OTT와 LG 앱 아이콘** ([#18](https://github.com/ecklf/lg-luma/pull/18), [`3e256f6`](https://github.com/ecklf/lg-luma/commit/3e256f6)에서 합쳐짐). [#26](https://github.com/ecklf/lg-luma/pull/26)부터는 Luma가 모든 앱 아이콘을 TV에서 바로 읽어 와요.
+- **올바른 로고.** Glasshouse에 더 이상 Das Erste 로고가 붙지 않아요 ([#21](https://github.com/ecklf/lg-luma/pull/21), [`27802ac`](https://github.com/ecklf/lg-luma/commit/27802ac)에서 합쳐짐).
+
+[#35](https://github.com/ecklf/lg-luma/pull/35)와 [#36](https://github.com/ecklf/lg-luma/pull/36)은 아직 원본에서 검토 중이라, 합쳐질 때까지 이 포크의 preview에 들어 있어요.
 
 **수정 전: Luma 2.0.3**
 
