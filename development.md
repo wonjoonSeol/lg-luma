@@ -12,6 +12,7 @@ tools/                       Asset preparation, SDK/runtime setup, packaging and
 tests/                       Desktop rendering and mocked HTTP smoke scripts
 tv/autostart.sh              Optional cold-boot launch hook
 tv/home.sh / home.cjs         Optional root-only native Home integration
+tv/home6.sh                  The same for webOS 6
 dist/                        Generated ARM IPK, checksum and Homebrew feed
 .build/                      Generated assets, SDK/runtime caches and rendering diagnostics
 ```
@@ -219,7 +220,8 @@ before creating the state directory, acquiring the lock or invoking the installe
 proceeds. `n`/`N` or end-of-input cancels, and other input repeats the prompt. The boot hook and
 `apply` remain non-interactive, and `disable`/`restore` remain available without confirmation.
 
-The native CLI accepts SAM's Home `nid` and gives SDL the matching Home surface identity. The
+The native CLI accepts SAM's Home `nid` (or `appId` on webOS 6) and gives SDL the matching Home
+surface identity. The
 executable itself stays at its installed path for LS2 authentication, `$ORIGIN/lib`, asset discovery
 and preference selection. Opening Luma's normal tile while the Home mount is active redirects to
 the Home instance. The scripts do not create a browser wrapper or change the package's app ID.
@@ -236,6 +238,22 @@ Build and script checks cannot establish native Home compatibility. Manually ver
 out of the last app, standby wake with the TV's chosen Quick Start+ setting, a full cold boot,
 saved preferences and restoring LG Home. The broader webOS 6+ app compatibility statement does
 not establish Home-replacement support on older firmware.
+
+### webOS 6 Home integration
+
+`home.cjs` refuses firmware other than 10.x/11.x, and webOS 6 SAM has neither `blockSystemApp`
+nor `profile.blockedAppList`, so a mounted Home manifest is not reread there without restarting
+SAM. LG Home on webOS 6 is the native binary `/usr/bin/com.webos.app.home`, so `tv/home6.sh`
+leaves its manifest alone. `enable` writes a launcher to `/var/lib/luma-home6`, bind-mounts it
+over that binary and stops the running LG Home, so SAM starts Home again through the launcher
+with its own manifest and launch data. The launcher execs Luma with that launch data, or removes
+its mount and runs LG's binary when Luma is not installed.
+
+`64-luma-home6` reapplies the mount from a detached boot hook. On an LG C1 with webOS 6.5.3 this
+happened about two minutes after a full cold boot, and LG Home shows until then. `disable` (also
+`restore`) removes the hook and the mount and stops Luma's Home instance. Unlike `home.sh`, it
+does not ask for confirmation, and it creates no `.luma-home` marker, so opening Luma's own tile
+is not redirected to the Home instance.
 
 ## Manual extra-app preview
 
