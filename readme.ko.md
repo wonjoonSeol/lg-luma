@@ -6,9 +6,16 @@
 
 ## 이 포크에 대해
 
-webOS 6을 쓰는 LG C1용 포크예요. 원본 `main` 위에 **webOS 6에서 Luma를 홈으로 쓰는 기능**을 더했어요. 원본의 홈 교체 기능은 webOS 6을 지원하지 않거든요 ([동작 방식](#webos-6에서-luma를-홈으로-쓰기)). 배경에 맞춘 스플래시 화면([#17](https://github.com/ecklf/lg-luma/pull/17), erikoliveira7)도 원본에 합쳐질 때까지 같이 들어 있어요.
+webOS 6을 쓰는 LG C1용 포크예요. 원본 `main` 위에 **webOS 6에서 Luma를 홈으로 쓰는 기능**을 더했어요. 원본의 홈 교체 기능은 webOS 6을 지원하지 않거든요 ([동작 방식](#webos-6에서-luma를-홈으로-쓰기)). 원본에 합쳐질 때까지 아이콘 수정 두 가지도 같이 들어 있어요.
 
-**다운로드:** [Luma 2.2.0 preview 1](https://github.com/wonjoonSeol/lg-luma/releases/tag/v2.2.0-preview.1).
+- Litefin처럼 로고가 가장자리까지 닿는 투명 아이콘이 같은 색 카드에 묻히지 않고 어두운 카드에 보여요 ([#35](https://github.com/ecklf/lg-luma/pull/35)).
+- 아이콘을 읽는 대로 바로 보여 줘서, 앱 화면이 3배쯤 빨리 채워져요 ([#36](https://github.com/ecklf/lg-luma/pull/36)).
+
+<img src="docs/fork/tv-apps.webp" alt="webOS 6 LG C1에서 홈으로 쓰는 Luma: 앱 화면에 각 앱 아이콘과 한글 이름이 보여요">
+
+제 LG C1(webOS 6.5.3)에서 홈으로 쓰는 Luma를 TV에서 바로 캡처했어요.
+
+**다운로드:** [Luma 2.2.0 preview 2](https://github.com/wonjoonSeol/lg-luma/releases/tag/v2.2.0-preview.2).
 IPK 파일을 [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop)나
 [영어 README의 SSH 방법](readme.md#ssh)으로 설치하면 돼요. 빌드 도구는 필요 없어요.
 

@@ -7,11 +7,19 @@ English | [한국어](readme.ko.md)
 ## About this fork
 
 My fork for an LG C1 on webOS 6. On top of upstream `main`, it adds **Luma as Home on webOS 6**,
-which upstream's takeover doesn't support ([how it works](#luma-as-home-on-webos-6)). It also
-carries [#17](https://github.com/ecklf/lg-luma/pull/17) by erikoliveira7, a splash that matches
-your background, until that is merged.
+which upstream's takeover doesn't support ([how it works](#luma-as-home-on-webos-6)). Until they
+are merged, it also carries two icon fixes:
 
-**Download:** [Luma 2.2.0 preview 1](https://github.com/wonjoonSeol/lg-luma/releases/tag/v2.2.0-preview.1).
+- Transparent icons whose logo reaches the edges, like Litefin's, keep a dark card instead of
+  disappearing into a card of their own colour ([#35](https://github.com/ecklf/lg-luma/pull/35)).
+- Icons show as soon as they are decoded: the Apps page fills in about 3x faster
+  ([#36](https://github.com/ecklf/lg-luma/pull/36)).
+
+<img src="docs/fork/tv-apps.webp" alt="Luma as Home on an LG C1 with webOS 6: the Apps page with each app's own icon and Korean names">
+
+Luma as Home on my LG C1 (webOS 6.5.3), captured on the TV.
+
+**Download:** [Luma 2.2.0 preview 2](https://github.com/wonjoonSeol/lg-luma/releases/tag/v2.2.0-preview.2).
 Install the IPK with [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) or the
 [SSH steps](#ssh) below. No build tools needed.
 
