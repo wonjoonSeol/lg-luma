@@ -16,12 +16,31 @@ HOOK=/var/lib/webosbrew/init.d/64-luma-home6
 
 mounted() { grep -q " $TARGET " /proc/mounts; }
 
-# Running processes whose executable is $1; with $2, only those whose
-# command line also contains it.
-pids() {
+# LG Home's own process: its binary, in the system's mount namespace.
+lg_home_pids() {
+  ns=$(readlink /proc/1/ns/mnt)
   for dir in /proc/[0-9]*; do
-    [ "$(readlink "$dir/exe" 2>/dev/null)" = "$1" ] || continue
-    [ -z "$2" ] || tr '\0' ' ' <"$dir/cmdline" 2>/dev/null | grep -q "$2" || continue
+    [ "$(readlink "$dir/exe" 2>/dev/null)" = "$TARGET" ] || continue
+    [ "$(readlink "$dir/ns/mnt" 2>/dev/null)" = "$ns" ] || continue
+    echo "${dir#/proc/}"
+  done
+}
+
+# Luma running as Home: from its own path with Home's launch data, or, after
+# switching identity, from $TARGET in its own private mount namespace.
+luma_pids() {
+  ns=$(readlink /proc/1/ns/mnt)
+  for dir in /proc/[0-9]*; do
+    exe=$(readlink "$dir/exe" 2>/dev/null) || continue
+    case "$exe" in
+      "$LUMA" | "$LUMA (deleted)")
+        tr '\0' ' ' <"$dir/cmdline" 2>/dev/null | grep -q com.webos.app.home || continue
+        ;;
+      "$TARGET" | "$TARGET (deleted)")
+        [ "$(readlink "$dir/ns/mnt" 2>/dev/null)" != "$ns" ] || continue
+        ;;
+      *) continue ;;
+    esac
     echo "${dir#/proc/}"
   done
 }
@@ -52,14 +71,14 @@ apply() {
   fi
   # LG Home started before the mount keeps running its own binary; stop it so
   # sam starts Home again, now through the launcher.
-  for pid in $(pids "$TARGET"); do kill "$pid"; done
+  for pid in $(lg_home_pids); do kill "$pid"; done
   echo 'Luma is Home.'
 }
 
 disable() {
   rm -f "$HOOK"
   if mounted; then umount "$TARGET" 2>/dev/null || umount -l "$TARGET" || return 1; fi
-  for pid in $(pids "$LUMA" com.webos.app.home); do kill "$pid"; done
+  for pid in $(luma_pids); do kill "$pid"; done
   echo 'LG Home is back.'
 }
 
@@ -80,8 +99,8 @@ case "${1:-status}" in
   status)
     mounted && echo 'Launcher mounted over LG Home.' || echo 'LG Home in place.'
     [ -f "$HOOK" ] && echo "Boot hook: $HOOK" || echo 'No boot hook.'
-    echo "LG Home processes: $(pids "$TARGET" | tr '\n' ' ')"
-    echo "Luma Home processes: $(pids "$LUMA" com.webos.app.home | tr '\n' ' ')"
+    echo "LG Home processes: $(lg_home_pids | tr '\n' ' ')"
+    echo "Luma Home processes: $(luma_pids | tr '\n' ' ')"
     ;;
   *) echo 'Usage: home6.sh enable | disable | status' >&2; exit 1 ;;
 esac
